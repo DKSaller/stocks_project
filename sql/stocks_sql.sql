@@ -45,3 +45,30 @@ FROM daily_changes
 WHERE prev_close IS NOT NULL
 ORDER BY abs_daily_return DESC
 LIMIT 5;
+
+-- Calculate AAPL’s daily price range (high - low) as a percentage of the closing price and find days where the range was more than 2 standard deviations above the 30-day average range.
+
+With daily_ranges AS (
+SELECT 
+       symbol,
+       date,
+	   high,
+       low,
+       close,
+       ROUND((high - low) / close * 100, 2) AS daily_range_pct,
+       AVG((high - low) / close * 100) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 29 PRECEDING AND CURRENT ROW) AS avg_range_30d,
+       STDDEV((high - low) / close * 100) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 29 PRECEDING AND CURRENT ROW) AS stddev_range_30d
+    FROM stock_prices
+    WHERE symbol = 'AAPL'
+)
+
+SELECT 
+	symbol,
+    date,
+    daily_range_pct,
+    avg_range_30d,
+    stddev_range_30d
+FROM daily_ranges
+WHERE daily_range_pct > avg_range_30d + 2 * stddev_range_30d
+AND stddev_range_30d IS NOT NULL
+ORDER BY date DESC;
