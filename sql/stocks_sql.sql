@@ -72,3 +72,31 @@ FROM daily_ranges
 WHERE daily_range_pct > avg_range_30d + 2 * stddev_range_30d
 AND stddev_range_30d IS NOT NULL
 ORDER BY date DESC;
+
+-- Find days for AAPL where the trading volume was at least 50% higher than the 10-day average volume, and the closing price was above the 10-day moving average (indicating potential breakout days).
+
+WITH volume_and_ma AS (
+    SELECT 
+        symbol,
+        date,
+        close,
+        volume,
+        AVG(volume) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 9 PRECEDING AND CURRENT ROW) AS avg_volume_10d,
+        AVG(close) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 9 PRECEDING AND CURRENT ROW) AS moving_avg_10d
+    FROM stock_prices
+    WHERE symbol = 'AAPL'
+)
+SELECT 
+    symbol,
+    date,
+    close,
+    volume,
+    ROUND(avg_volume_10d, 0) AS avg_volume_10d,
+    ROUND(moving_avg_10d, 2) AS moving_avg_10d,
+    ROUND((volume / avg_volume_10d - 1) * 100, 2) AS volume_pct_above_avg
+FROM volume_and_ma
+WHERE volume > avg_volume_10d * 1.5
+AND close > moving_avg_10d
+AND avg_volume_10d IS NOT NULL
+ORDER BY date DESC
+LIMIT 10;
