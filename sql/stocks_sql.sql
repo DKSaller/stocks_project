@@ -100,3 +100,29 @@ AND close > moving_avg_10d
 AND avg_volume_10d IS NOT NULL
 ORDER BY date DESC
 LIMIT 10;
+
+--  Identify days for AAPL where the opening price gapped up or down by more than 2% compared to the previous day’s close, and show the gap size and subsequent day’s return.
+
+WITH price_gaps AS (
+    SELECT 
+        symbol,
+        date,
+        open,
+        close,
+        LAG(close) OVER (PARTITION BY symbol ORDER BY date) AS prev_close,
+        ROUND(((open - LAG(close) OVER (PARTITION BY symbol ORDER BY date)) / LAG(close) OVER (PARTITION BY symbol ORDER BY date) * 100), 2) AS gap_pct,
+        ROUND(((close - open) / open * 100), 2) AS intraday_return
+    FROM stock_prices
+    WHERE symbol = 'AAPL'
+)
+SELECT 
+    symbol,
+    date,
+    open,
+    prev_close,
+    gap_pct,
+    intraday_return
+FROM price_gaps
+WHERE ABS(gap_pct) > 2 AND prev_close IS NOT NULL
+ORDER BY ABS(gap_pct) DESC
+LIMIT 10;
