@@ -126,3 +126,29 @@ FROM price_gaps
 WHERE ABS(gap_pct) > 2 AND prev_close IS NOT NULL
 ORDER BY ABS(gap_pct) DESC
 LIMIT 10;
+
+--  For AAPL, find days where the stock’s closing price outperformed its 5-day average closing price by more than 5%, and rank these days by the degree of outperformance within each year.
+
+WITH relative_strength AS (
+    SELECT 
+        symbol,
+        date,
+        close,
+        EXTRACT(YEAR FROM date) AS year,
+        AVG(close) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS avg_close_5d,
+        ROUND(((close / AVG(close) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) - 1) * 100), 2) AS outperformance_pct
+    FROM stock_prices
+    WHERE symbol = 'AAPL'
+)
+SELECT 
+    symbol,
+    date,
+    year,
+    close,
+    ROUND(avg_close_5d, 2) AS avg_close_5d,
+    outperformance_pct,
+    RANK() OVER (PARTITION BY symbol, year ORDER BY outperformance_pct DESC) AS strength_rank
+FROM relative_strength
+WHERE outperformance_pct > 5 AND avg_close_5d IS NOT NULL
+ORDER BY year DESC, outperformance_pct DESC
+LIMIT 10;
