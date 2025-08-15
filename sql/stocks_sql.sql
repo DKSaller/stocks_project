@@ -152,3 +152,25 @@ FROM relative_strength
 WHERE outperformance_pct > 5 AND avg_close_5d IS NOT NULL
 ORDER BY year DESC, outperformance_pct DESC
 LIMIT 10;
+
+-- For AAPL, compute the percentage drawdown from the highest closing price in the past 30 days for each day, and identify the top 5 days with the largest drawdowns.
+
+WITH max_highs AS (
+    SELECT 
+        symbol,
+        date,
+        close,
+        MAX(close) OVER (PARTITION BY symbol ORDER BY date ROWS BETWEEN 29 PRECEDING AND CURRENT ROW) AS max_close_30d
+    FROM stock_prices
+    WHERE symbol = 'AAPL'
+)
+SELECT 
+    symbol,
+    date,
+    close,
+    max_close_30d,
+    ROUND(((close / max_close_30d - 1) * 100), 2) AS drawdown_pct
+FROM max_highs
+WHERE max_close_30d IS NOT NULL
+ORDER BY drawdown_pct ASC
+LIMIT 5;
