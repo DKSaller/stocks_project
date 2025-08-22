@@ -174,3 +174,28 @@ FROM max_highs
 WHERE max_close_30d IS NOT NULL
 ORDER BY drawdown_pct ASC
 LIMIT 5;
+
+-- For AAPL, calculate the average weekly return (Friday close to Friday close) for each day of the week (e.g., Monday, Tuesday) across all years, and identify which day tends to have the strongest/weakest performance.
+
+WITH weekly_changes AS (
+    SELECT 
+        symbol,
+        date,
+        close,
+        EXTRACT(DOW FROM date) AS day_of_week,
+        TO_CHAR(date, 'Day') AS day_name,
+        LAG(close) OVER (PARTITION BY symbol ORDER BY date) AS prev_close,
+        ROUND(((close - LAG(close) OVER (PARTITION BY symbol ORDER BY date)) / LAG(close) OVER (PARTITION BY symbol ORDER BY date) * 100), 2) AS daily_return
+    FROM stock_prices
+    WHERE symbol = 'AAPL'
+)
+SELECT 
+    symbol,
+    day_name,
+    day_of_week,
+    ROUND(AVG(daily_return), 2) AS avg_daily_return,
+    COUNT(*) AS num_days
+FROM weekly_changes
+WHERE daily_return IS NOT NULL
+GROUP BY symbol, day_of_week, day_name
+ORDER BY avg_daily_return DESC;
